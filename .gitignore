@@ -50,4 +50,7 @@ Thumbs.db
 
 # Fichiers de configuration locaux
 .env
-.env.local 
+.env.local
+
+# Gradio (auto-généré)
+.gradio/
