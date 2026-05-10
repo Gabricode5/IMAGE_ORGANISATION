@@ -5,23 +5,34 @@ from tensorflow.keras.applications.resnet50 import preprocess_input, decode_pred
 from tensorflow.keras.preprocessing import image
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import time
 import logging
+from logging.handlers import RotatingFileHandler
 from PIL import Image
 import requests
 from io import BytesIO
 from config import MODEL_CONFIG, INTERFACE_CONFIG, FILE_CONFIG, MONITORING_CONFIG, LOGGING_CONFIG
 
 # ── Logging ──────────────────────────────────────────────────────────────────
+_formatter = logging.Formatter(LOGGING_CONFIG["format"])
+
+# Rotation automatique : 5 Mo par fichier, 3 archives conservées
+_file_handler = RotatingFileHandler(
+    LOGGING_CONFIG["file"],
+    maxBytes=LOGGING_CONFIG["max_bytes"],
+    backupCount=LOGGING_CONFIG["backup_count"],
+    encoding="utf-8"
+)
+_file_handler.setFormatter(_formatter)
+
+_console_handler = logging.StreamHandler()
+_console_handler.setFormatter(_formatter)
+
 logging.basicConfig(
     level=getattr(logging, LOGGING_CONFIG["level"]),
-    format=LOGGING_CONFIG["format"],
-    handlers=[
-        logging.FileHandler(LOGGING_CONFIG["file"], encoding="utf-8"),
-        logging.StreamHandler()
-    ]
+    handlers=[_file_handler, _console_handler]
 )
 logger = logging.getLogger("ImageClassifier")
 
@@ -36,7 +47,29 @@ class ImageClassifier:
         if not os.path.exists(self.history_file):
             self._create_csv_file()
 
+        self.purge_old_predictions()
         logger.info(f"Modèle {MODEL_CONFIG['model_name']} chargé avec succès.")
+
+    def purge_old_predictions(self):
+        """RGPD : supprime du CSV les prédictions antérieures à la durée de rétention configurée."""
+        try:
+            df = pd.read_csv(self.history_file)
+            if df.empty:
+                return
+            limite = datetime.now() - timedelta(days=MONITORING_CONFIG["retention_days"])
+            df["timestamp"] = pd.to_datetime(df["timestamp"])
+            avant = len(df)
+            df = df[df["timestamp"] >= limite]
+            apres = len(df)
+            if avant != apres:
+                df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
+                df.to_csv(self.history_file, index=False)
+                logger.info(
+                    f"RGPD : {avant - apres} prédiction(s) supprimée(s) "
+                    f"(antérieures au {limite.strftime('%Y-%m-%d')})"
+                )
+        except Exception as e:
+            logger.error(f"Erreur lors de la purge temporelle : {e}")
 
     def _create_csv_file(self):
         df = pd.DataFrame(columns=[
@@ -89,6 +122,13 @@ class ImageClassifier:
                     f"Temps : {response_time_ms:.0f}ms"
                 )
 
+            # ── Détection d'incident : latence anormale ───────────────────
+            if response_time_ms > MONITORING_CONFIG["response_time_threshold_ms"]:
+                logger.warning(
+                    f"INCIDENT — Latence anormale : {response_time_ms:.0f}ms "
+                    f"(seuil : {MONITORING_CONFIG['response_time_threshold_ms']}ms)"
+                )
+
             self.consecutive_errors = 0
             return main_class, main_confidence, "\n".join(results), response_time_ms
 
@@ -135,6 +175,8 @@ class ImageClassifier:
         try:
             df = pd.read_csv(self.history_file)
             if len(df) > 0:
+                # pandas infère float64 si toutes les cellules feedback sont vides (NaN)
+                df["feedback"] = df["feedback"].astype(object)
                 df.loc[df.index[-1], "feedback"] = feedback_value
                 df.to_csv(self.history_file, index=False)
                 logger.info(f"Feedback loop alimentée : '{feedback_value}' sur la dernière prédiction")
@@ -165,9 +207,10 @@ class ImageClassifier:
             avg_time = round(df["response_time_ms"].mean(), 0) if total > 0 else 0.0
             correct_fb = len(df[df["feedback"] == "Correcte"])
             incorrect_fb = len(df[df["feedback"] == "Incorrecte"])
-            return total, errors, low_conf, avg_conf, avg_time, correct_fb, incorrect_fb
+            # Le compteur d'erreurs consécutives est en mémoire vive (remis à zéro au redémarrage)
+            return total, errors, low_conf, avg_conf, avg_time, correct_fb, incorrect_fb, self.consecutive_errors
         except Exception:
-            return 0, 0, 0, 0.0, 0.0, 0, 0
+            return 0, 0, 0, 0.0, 0.0, 0, 0, self.consecutive_errors
 
     def classify_image(self, input_image, image_name="image"):
         if input_image is None:
@@ -184,7 +227,7 @@ def create_interface():
 
     # ── Génération du HTML de monitoring ─────────────────────────────────────
     def generate_metrics_html():
-        total, errors, low_conf, avg_conf, avg_time, correct_fb, incorrect_fb = classifier.get_metrics()
+        total, errors, low_conf, avg_conf, avg_time, correct_fb, incorrect_fb, _ = classifier.get_metrics()
         error_rate = f"{(errors / total * 100):.1f}%" if total > 0 else "0%"
         fb_total = correct_fb + incorrect_fb
         accuracy = f"{(correct_fb / fb_total * 100):.1f}%" if fb_total > 0 else "N/A"
