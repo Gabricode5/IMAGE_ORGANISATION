@@ -1,7 +1,7 @@
 # Journal des Incidents Techniques
 ## Application de Classification d'Images par Intelligence Artificielle
 
-**Projet :** Classification d'Images IA — ResNet50  
+**Projet :** Classification d'Images IA  
 **Auteur :** Gabriel Guery  
 **Date du document :** 28 avril 2025  
 

@@ -39,11 +39,15 @@ MONITORING_CONFIG = {
     "confidence_threshold": 30.0,        # % en dessous duquel une prédiction est suspecte
     "consecutive_errors_threshold": 3,   # nb d'erreurs consécutives avant incident CRITIQUE
     "max_history_rows": 1000,            # RGPD : nombre max de lignes conservées dans le CSV
+    "response_time_threshold_ms": 1000,  # latence anormale au-delà de 1 seconde
+    "retention_days": 90,               # RGPD : purge automatique des prédictions > 90 jours
 }
 
 # Configuration des logs
 LOGGING_CONFIG = {
     "level": "INFO",
     "format": "%(asctime)s — %(levelname)s — %(message)s",
-    "file": "app.log"
+    "file": "app.log",
+    "max_bytes": 5 * 1024 * 1024,       # 5 Mo par fichier avant rotation
+    "backup_count": 3,                   # 3 fichiers d'archive conservés
 }

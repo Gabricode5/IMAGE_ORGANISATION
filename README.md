@@ -38,10 +38,10 @@ Un système de classification d'images utilisant un modèle préentraîné ResNe
 
 2. **Créer un environnement virtuel (recommandé)**
    ```bash
-   python -m venv venv
+   python3 -m venv venv
    
    # Sur Windows
-   venv\Scripts\activate
+   venv\bin\activate
    
    # Sur macOS/Linux
    source venv/bin/activate
