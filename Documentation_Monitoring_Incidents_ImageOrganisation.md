@@ -4,13 +4,10 @@ auteur: Gabriel Guery
 date: Mai 2026
 version: "1.0"
 stack: ResNet50 · FastAPI · Gradio
+header-includes:
+  - '\usepackage{ragged2e}'
+  - '\justifying'
 ---
-
-<style>
-  p, li {
-    text-align: justify;
-  }
-</style>
 
 # Documentation Technique - Monitoring et Gestion des Incidents
 ## Projet IMAGE_ORGANISATION
