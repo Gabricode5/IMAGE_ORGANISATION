@@ -6,6 +6,12 @@ version: "1.0"
 stack: ResNet50 · FastAPI · Gradio
 ---
 
+<style>
+  p, li {
+    text-align: justify;
+  }
+</style>
+
 # Documentation Technique - Monitoring et Gestion des Incidents
 ## Projet IMAGE_ORGANISATION
 
@@ -23,10 +29,6 @@ stack: ResNet50 · FastAPI · Gradio
 | Historique des prédictions | Persistance des résultats, des scores de confiance et des retours utilisateurs | CSV (pandas) |
 | Interface de monitoring | Tableau de bord temps réel des métriques clés | Gradio |
 | API REST | Exposition des endpoints de prédiction, santé et métriques | FastAPI |
-
-### 1.2 Flux de données
-
-À chaque requête, l'image est prétraitée, soumise au modèle, puis le résultat est journalisé, persisté dans l'historique et vérifié contre les seuils d'alerte configurés.
 
 ---
 
